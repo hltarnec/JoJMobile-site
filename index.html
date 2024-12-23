@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="fr">
+    <style>
+        /* Style général du corps */
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f7fa;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+    
+        /* Conteneur principal */
+        .container {
+            width: 80%;
+            margin: 20px auto;
+        }
+    
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #2c3e50;
+        }
+    
+        /* Section du thème */
+        #theme-section {
+            margin-bottom: 20px;
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+    
+        /* Sélection du thème */
+        select {
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+            background-color: #f9f9f9;
+        }
+    
+        /* Section des questions */
+        #questions-section {
+            margin-top: 30px;
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+    
+        .question-item {
+            margin-bottom: 15px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 6px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+    
+        /* Labels des questions et réponses */
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #34495e;
+        }
+    
+        /* Champs de texte des questions et des réponses */
+        input[type="text"], input[type="number"] {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin-top: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+            background-color: #f9f9f9;
+        }
+    
+        /* Boutons */
+        button {
+            padding: 10px 20px;
+            margin: 10px 5px;
+            border: none;
+            border-radius: 4px;
+            background-color: #3498db;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+    
+        button:hover {
+            background-color: #2980b9;
+        }
+    
+        .delete-button {
+            background-color: #e74c3c;
+        }
+    
+        .delete-button:hover {
+            background-color: #c0392b;
+        }
+    
+        /* Container des fichiers */
+        .file-container {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+    
+        /* Texte de statut du fichier */
+        #file-status {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #555;
+        }
+    
+        /* Mise en page des boutons et des éléments de contenu */
+        .button-container {
+            text-align: center;
+            margin-top: 20px;
+        }
+    
+        .button-container button {
+            margin: 0 10px;
+        }
+    </style>
+    
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz - Gestion des Thèmes</title>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+        import { getDatabase, ref, get, update, set, remove } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCfam4RbsWMXkPhGEWgnbEXgansyKTpigE",
+            authDomain: "jojmobile-f6419.firebaseapp.com",
+            databaseURL: "https://jojmobile-f6419-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "jojmobile-f6419",
+            storageBucket: "jojmobile-f6419.firebasestorage.app",
+            messagingSenderId: "144021135969",
+            appId: "1:144021135969:web:1e965cff198fbdb9cc4020",
+            measurementId: "G-0FN62D9MZZ"
+        };
+
+        // Initialisation Firebase
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+
+        // Variable pour stocker les questions localement
+        let currentQuestions = [];
+
+        // Charger les thèmes dans la liste déroulante
+        const loadThemes = async () => {
+            const dbRef = ref(database, "/themes");
+            try {
+                const snapshot = await get(dbRef);
+                if (snapshot.exists()) {
+                    const themes = snapshot.val();
+                    const themeSelect = document.getElementById("theme-select");
+                    themeSelect.innerHTML = ""; // Vider la liste déroulante
+                    themes.forEach((theme, index) => {
+                        const option = document.createElement("option");
+                        option.value = index;
+                        option.textContent = theme.themeName;
+                        themeSelect.appendChild(option);
+                    });
+                    document.getElementById("theme-section").style.display = "block";
+                    loadQuestions(0); // Charger les questions du premier thème par défaut
+                } else {
+                    console.log("Aucun thème trouvé.");
+                }
+            } catch (error) {
+                console.error("Erreur lors du chargement des thèmes :", error);
+            }
+        };
+
+        // Charger les questions d'un thème
+        const loadQuestions = (themeIndex) => {
+            const dbRef = ref(database, `/themes/${themeIndex}`);
+            get(dbRef).then((snapshot) => {
+                if (snapshot.exists()) {
+                    const theme = snapshot.val();
+                    currentQuestions = theme.questions || []; // Sauvegarder les questions dans la variable locale
+                    updateQuestionIndices(); // Réindexer localement si nécessaire
+                    renderQuestions(document.getElementById("questions-container"));
+                    document.getElementById("questions-section").style.display = "block"; // Afficher la section des questions
+                } else {
+                    console.log("Aucune question trouvée pour ce thème.");
+                    currentQuestions = [];
+                }
+            }).catch((error) => {
+                console.error("Erreur lors du chargement des questions :", error);
+            });
+        };
+
+        // Réindexer les questions pour assurer un ordre cohérent (0, 1, 2, ...)
+        const updateQuestionIndices = () => {
+            currentQuestions.forEach((question, index) => {
+                question.index = index; // Mettre à jour l'attribut `index`
+            });
+        };
+
+        // Fonction pour afficher les questions
+        const renderQuestions = (container) => {
+            container.innerHTML = currentQuestions.map((question, index) => `
+                <div class="question-item">
+                    <label>Question ${index + 1} :</label>
+                    <input type="text" value="${question.questionText}" data-index="${index}" class="question-text">
+                    <label>Réponse correcte :</label>
+                    <input type="number" value="${question.correctAnswer}" data-index="${index}" class="correct-answer">
+                    <button class="delete-button" data-index="${index}">Supprimer</button>
+                </div>
+            `).join("");
+
+            // Ajouter les événements pour chaque bouton de suppression
+            document.querySelectorAll(".delete-button").forEach(button => {
+                button.addEventListener("click", deleteQuestion);
+            });
+
+            // Ajouter les événements de modification pour chaque question
+            document.querySelectorAll(".question-text").forEach(input => {
+                input.addEventListener("change", updateQuestionText);
+            });
+
+            document.querySelectorAll(".correct-answer").forEach(input => {
+                input.addEventListener("change", updateCorrectAnswer);
+            });
+        };
+
+        // Mettre à jour le texte de la question
+        const updateQuestionText = (event) => {
+            const questionIndex = event.target.dataset.index;
+            const updatedText = event.target.value;
+            currentQuestions[questionIndex].questionText = updatedText;
+        };
+
+        // Mettre à jour la réponse correcte
+        const updateCorrectAnswer = (event) => {
+            const questionIndex = event.target.dataset.index;
+            const updatedAnswer = event.target.value;
+            currentQuestions[questionIndex].correctAnswer = updatedAnswer;
+        };
+
+        // Supprimer une question localement et réindexer
+        const deleteQuestion = (event) => {
+            const questionIndex = event.target.dataset.index;
+            currentQuestions.splice(questionIndex, 1); // Supprimer la question localement
+            updateQuestionIndices(); // Réindexer après suppression
+            renderQuestions(document.getElementById("questions-container")); // Réafficher les questions
+        };
+
+        // Ajouter une nouvelle question localement
+        const addQuestion = () => {
+            const newQuestion = {
+                index: currentQuestions.length,
+                questionText: "Nouvelle question",
+                correctAnswer: 1
+            };
+            currentQuestions.push(newQuestion);
+            renderQuestions(document.getElementById("questions-container")); // Réafficher les questions
+        };
+
+        // Sauvegarder les modifications dans Firebase
+        const saveChanges = async () => {
+            const selectedThemeIndex = document.getElementById("theme-select").value;
+
+            try {
+                // Supprimer toutes les questions existantes du thème
+                await remove(ref(database, `/themes/${selectedThemeIndex}/questions`));
+
+                // Préparer les nouvelles données avec les indices mis à jour
+                const updates = {};
+                currentQuestions.forEach((question, index) => {
+                    updates[`/themes/${selectedThemeIndex}/questions/${index}`] = question;
+                });
+
+                // Mettre à jour totalQuestions et les questions dans Firebase
+                updates[`/themes/${selectedThemeIndex}/totalQuestions`] = currentQuestions.length;
+
+                await update(ref(database), updates);
+
+                alert("Modifications enregistrées avec succès !");
+            } catch (error) {
+                console.error("Erreur lors de la sauvegarde :", error);
+                alert("Erreur lors de la sauvegarde.");
+            }
+        };
+
+        // Ajouter un thème à la base de données
+        const addThemeToDatabase = async (themeData) => {
+            const dbRef = ref(database, "/themes");
+            try {
+                const snapshot = await get(dbRef);
+                const themes = snapshot.exists() ? snapshot.val() : [];
+                const newThemeId = themes.length; // l'ID sera l'indice suivant dans la base de données
+                const newThemeRef = ref(database, `/themes/${newThemeId}`);
+                await set(newThemeRef, themeData);
+                loadThemes();
+            } catch (error) {
+                console.error("Erreur lors de l'ajout du thème :", error);
+                alert("Erreur lors de l'ajout du thème.");
+            }
+        };
+
+        // Ajouter un thème depuis un fichier JSON
+        let selectedFile = null;
+
+        document.getElementById("file-input").addEventListener("change", (event) => {
+            selectedFile = event.target.files[0];
+            if (selectedFile && selectedFile.name.endsWith(".json")) {
+                document.getElementById("file-status").textContent = `Fichier sélectionné : ${selectedFile.name}`;
+            } else {
+                document.getElementById("file-status").textContent = "Veuillez charger un fichier JSON valide.";
+            }
+        });
+
+        document.getElementById("validate-file").addEventListener("click", async () => {
+            if (selectedFile) {
+                const reader = new FileReader();
+                reader.onload = async () => {
+                    try {
+                        const themeData = JSON.parse(reader.result);
+                        await addThemeToDatabase(themeData);
+                        alert("Thème ajouté avec succès !");
+                        document.getElementById("file-status").textContent = "";
+                    } catch (error) {
+                        console.error("Erreur lors du chargement du fichier JSON :", error);
+                        alert("Erreur lors du chargement du fichier.");
+                    }
+                };
+                reader.readAsText(selectedFile);
+            }
+        });
+
+        // Ajouter un bouton pour ajouter une nouvelle question
+        document.getElementById("add-question").addEventListener("click", addQuestion);
+
+        // Charger les thèmes au démarrage
+        window.onload = loadThemes;
+
+        // Gestion du changement de thème
+        document.getElementById("theme-select").addEventListener("change", (e) => {
+            const selectedThemeIndex = e.target.value;
+            loadQuestions(selectedThemeIndex);
+        });
+
+        // Sauvegarder les modifications lors du clic sur le bouton
+        document.getElementById("save-changes").addEventListener("click", saveChanges);
+
+    </script>
+</head>
+<body>
+    <div id="theme-section">
+        <select id="theme-select"></select>
+    </div>
+
+    <div id="questions-section" style="display:none;">
+        <div id="questions-container"></div>
+        <button id="save-changes">Enregistrer les modifications</button>
+        <button id="add-question">Ajouter une question</button>
+    </div>
+
+    <!-- Ajouter un thème via un fichier JSON -->
+    <div>
+        <input type="file" id="file-input">
+        <button id="validate-file">Ajouter un thème</button>
+        <span id="file-status"></span>
+    </div>
+</body>
+</html>
